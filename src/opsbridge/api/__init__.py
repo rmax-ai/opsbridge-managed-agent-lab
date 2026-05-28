@@ -1,1 +1,1 @@
-"""Package init for api module."""
+"""OpsBridge FastAPI backend package."""
