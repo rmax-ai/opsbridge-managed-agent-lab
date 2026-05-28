@@ -1,0 +1,10 @@
+allowed_paths:
+  - /workspace
+  - /tmp
+denied_paths:
+  - /etc
+  - /var
+  - /proc
+  - /sys
+read_only:
+  - /workspace/policy

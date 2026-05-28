@@ -1,0 +1,50 @@
+services:
+  opshub-mcp:
+    build:
+      context: .
+      dockerfile: sandbox_worker/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - OPSHUB_AUTH_TOKEN=demo-token-opsbridge-2026
+    networks:
+      - private
+
+  sandbox-worker:
+    build:
+      context: ./sandbox_worker
+    stdin_open: true
+    tty: true
+    networks:
+      - private
+    volumes:
+      - ./data:/workspace/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - opshub-mcp
+    networks:
+      - private
+    environment:
+      - OPSHUB_MCP_URL=http://opshub-mcp:8001
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    networks:
+      - private
+
+networks:
+  private:
+    driver: bridge
+    internal: true
