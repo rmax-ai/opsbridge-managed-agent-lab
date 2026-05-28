@@ -22,8 +22,9 @@ from src.opsbridge.managed_agents import (
 from src.opsbridge.managed_agents import provision as provision_module
 from src.opsbridge.managed_agents.client import ManagedAgentClient, ManagedAgentClientError
 from src.opsbridge.managed_agents.orchestrator import IncidentSessionOrchestrator
-from src.opsbridge.managed_agents.stream import EventStreamConsumer
+from src.opsbridge.managed_agents.outcome_evaluator import OutcomeEvaluator
 from src.opsbridge.managed_agents.permissions import PolicyDecision
+from src.opsbridge.managed_agents.stream import EventStreamConsumer
 
 
 class FakeResource:
@@ -118,11 +119,9 @@ class FakeResource:
 
     def delete(self, **kwargs: Any) -> None:
         self.calls.append(("delete", kwargs))
-        return None
 
     def send(self, **kwargs: Any) -> None:
         self.calls.append(("send", kwargs))
-        return None
 
     async def _stream(self) -> AsyncIterator[dict[str, Any]]:
         yield {"type": "message", "text": "hello"}
@@ -281,10 +280,10 @@ def test_session_helpers() -> None:
 class FakeProvisioner:
     def create_session(
         self,
-        agent_id: str,
-        environment_id: str,
-        vault_ids: list[str],
-        memory_store_ids: list[str],
+        _agent_id: str,
+        _environment_id: str,
+        _vault_ids: list[str],
+        _memory_store_ids: list[str],
     ) -> str:
         return "session-created"
 
@@ -320,6 +319,59 @@ def test_outcome_helpers(tmp_path: Path) -> None:
     assert defined.id == "outcomes-created"
     assert status.status == "running"
     assert evaluations[0].criterion == "quality"
+
+
+def test_outcome_evaluator_defines_and_scores_outcome() -> None:
+    client = make_client()
+    evaluator = OutcomeEvaluator(client)
+
+    description = evaluator.define_outcome("session-1", "inc_042")
+    evaluation = evaluator.evaluate_artifact(
+        {
+            "incident_id": "inc_042",
+            "affected_service": "payments-api",
+            "severity": "sev-2",
+            "impact_summary": "Increased latency for checkout requests.",
+            "evidence_items": ["metric:latency", "log:error-rate", "deploy:release-123"],
+            "primary_cause": "A bad deploy saturated worker concurrency.",
+            "secondary_symptoms": "Retry storms and queue backlog.",
+            "uncertainty_summary": "Database contention remains a secondary possibility.",
+            "alternative_hypotheses": ["database lock contention"],
+            "target_resource": "deployment/payments-api",
+            "proposed_action": "Rollback the active deployment.",
+            "action_arguments": "--to-revision=122",
+            "risk_summary": "Short-lived request failures during rollout.",
+            "reversibility_plan": "Redeploy revision 123 if error rate worsens.",
+            "expected_effect": "Latency and error rate should return to baseline.",
+            "validation_plan": "Check p95 latency, error rate, and queue depth for 15 minutes.",
+            "approvals": ["approval-1"],
+            "approval_reason": "Change approved by on-call lead.",
+            "executed_actions": [
+                {"write_capable": True, "approved": True, "approval_id": "approval-1"}
+            ],
+            "final_report_path": "/mnt/session/outputs/final_incident_report.md",
+            "final_json_path": "/mnt/session/outputs/final_report.json",
+            "execution_result": "Rollback completed successfully.",
+            "recovery_validation": "Metrics returned to baseline.",
+        }
+    )
+
+    session_calls = client.beta.sessions.calls if hasattr(client.beta, "sessions") else []
+
+    assert "inc_042" in description
+    assert session_calls[-1][1]["input"]["type"] == "user.define_outcome"
+    assert session_calls[-1][1]["input"]["rubric"]["type"] == "text"
+    assert all(result == "pass" for result in evaluation.values())
+    assert evaluator.needs_revision(evaluation) is False
+
+
+def test_outcome_evaluator_marks_missing_validation_plan_for_revision() -> None:
+    evaluator = OutcomeEvaluator(make_client())
+
+    evaluation = evaluator.evaluate_artifact({"incident_id": "inc_042"})
+
+    assert evaluation["validation_plan"] == "needs_revision"
+    assert evaluator.needs_revision(evaluation) is True
 
 
 def test_memory_helpers() -> None:
