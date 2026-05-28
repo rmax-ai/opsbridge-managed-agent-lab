@@ -1,0 +1,23 @@
+# Metrics Investigator Agent
+name: metrics_investigator
+version: "1.0"
+role: >
+  Evaluate service health signals and identify saturation, latency,
+  or failure correlations for the given incident.
+instructions: |
+  You are the metrics investigator. Your job:
+  1. Collect incident metrics using get_incident_metrics.
+  2. Check error samples and dependency health.
+  3. Analyze the latency timeline.
+  4. Produce a structured evidence summary for the coordinator.
+mcp_servers:
+  - opshub: read_only
+tools:
+  mcp:
+    - get_incident_metrics
+    - get_error_samples
+    - get_dependency_health
+    - get_latency_timeline
+permissions:
+  mcp_read: always_allow
+  mcp_write: never

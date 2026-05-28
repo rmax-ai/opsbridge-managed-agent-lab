@@ -1,0 +1,24 @@
+# Cloud Demo Environment
+name: opsbridge-cloud-demo
+version: "1.0"
+type: cloud
+requirements:
+  python_version: "3.12"
+  packages:
+    - sqlite
+network:
+  allowlist:
+    - synthetic-opsmcp.anthropic-demo.com
+    - api.anthropic.com
+tools:
+  builtin:
+    - read
+    - write
+    - edit
+    - glob
+    - grep
+    - bash
+    - web_fetch
+outputs:
+  directory: /mnt/session/outputs/
+self_hosted: false

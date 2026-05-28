@@ -1,0 +1,62 @@
+# Action Policy Configuration
+
+tools:
+  # Read-only tools: always allowed
+  - group: mcp_read
+    pattern: "get_*"
+    policy: always_allow
+
+  - group: mcp_read
+    pattern: "list_*"
+    policy: always_allow
+
+  # Mutation tools: require human approval
+  - group: mcp_write
+    pattern: "rollback_*"
+    policy: always_ask
+    default_deny: false
+    required_evidence:
+      - root_cause_summary
+      - supporting_metrics
+      - rollback_plan
+      - validation_plan
+
+  - group: mcp_write
+    pattern: "update_*"
+    policy: always_ask
+    default_deny: false
+    required_evidence:
+      - root_cause_summary
+      - proposed_change
+
+  - group: mcp_write
+    pattern: "post_*"
+    policy: always_ask
+    default_deny: false
+    required_evidence:
+      - rationale
+
+  # Destructive tools: always ask, default deny
+  - group: mcp_write
+    pattern: "delete_*"
+    policy: always_ask
+    default_deny: true
+    required_evidence:
+      - root_cause_summary
+      - all_alternatives_exhausted
+      - executive_approval
+
+  # Built-in file reads: always allowed
+  - group: builtin_read
+    pattern: "*"
+    policy: always_allow
+
+  # Built-in writes to outputs directory: always allowed
+  - group: builtin_write
+    pattern: "/mnt/session/outputs/*"
+    policy: always_allow
+
+  # Bash execution: always ask in governance demo
+  - group: builtin_bash
+    pattern: "*"
+    policy: always_ask

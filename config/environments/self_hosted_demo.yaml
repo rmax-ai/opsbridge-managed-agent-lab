@@ -1,0 +1,26 @@
+# Self-Hosted Sandbox Demo Environment
+name: opsbridge-self-hosted
+version: "1.0"
+type: self_hosted
+requirements:
+  python_version: "3.12"
+  packages:
+    - sqlite
+network:
+  allowlist:
+    - localhost
+    - private-network
+tools:
+  builtin:
+    - read
+    - write
+    - edit
+    - glob
+    - grep
+    - bash
+outputs:
+  directory: /mnt/session/outputs/
+self_hosted: true
+sandbox_worker:
+  image: opsbridge-sandbox-worker:latest
+  workdir: /workspace

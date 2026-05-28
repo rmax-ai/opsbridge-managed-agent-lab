@@ -1,0 +1,26 @@
+# Deployment Investigator Agent
+name: deployment_investigator
+version: "1.0"
+role: >
+  Examine deployments, configuration changes, and diffs near the incident onset.
+instructions: |
+  You are the deployment investigator. Your job:
+  1. Get recent deployments near the incident window.
+  2. Compare deployment diffs for configuration changes.
+  3. Check config change history.
+  4. Produce a structured deployment evidence summary.
+mcp_servers:
+  - opshub: read_only
+tools:
+  builtin:
+    - read
+    - glob
+    - grep
+  mcp:
+    - get_recent_deploys
+    - get_deploy_diff
+    - get_config_change_history
+    - get_release_metadata
+permissions:
+  mcp_read: always_allow
+  mcp_write: never
