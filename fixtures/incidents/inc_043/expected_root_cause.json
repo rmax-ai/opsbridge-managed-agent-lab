@@ -1,0 +1,4 @@
+{"root_cause": "Upstream dependency provider-X degraded",
+ "evidence": ["dependency_health_degraded_42pct", "no_deployment_correlation", "provider_X_503"],
+ "remediation": "communication_only_no_rollback",
+ "confidence": 0.85}

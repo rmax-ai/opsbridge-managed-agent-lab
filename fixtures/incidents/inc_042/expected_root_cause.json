@@ -1,0 +1,5 @@
+{"root_cause": "Database connection pool maximum was reduced from 120 to 12 in deploy 9f13d2",
+ "evidence": ["db_pool_saturation_100", "p99_latency_spike_180ms_to_2400ms", "diff_DB_POOL_MAX_120_to_12", "auth_error_rate_18"],
+ "confidence": 0.95,
+ "remediation": "Rollback deployment 9f13d2 and update incident ticket with evidence",
+ "key_diff": "DB_POOL_MAX=120 → DB_POOL_MAX=12"}
