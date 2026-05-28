@@ -133,7 +133,9 @@ def test_get_incident_returns_inc_042(client: TestClient) -> None:
 
 
 def test_get_incident_metrics_returns_seeded_values(client: TestClient) -> None:
-    payload = _call_tool(client, "get_incident_metrics", {"incident_id": "INC-042", "window_minutes": 60})
+    payload = _call_tool(
+        client, "get_incident_metrics", {"incident_id": "INC-042", "window_minutes": 60}
+    )
     metrics = _tool_result(payload)
     metric_values = {(metric["metric_name"], metric["value"]) for metric in metrics}
     assert ("p99_latency_ms", 180.0) in metric_values

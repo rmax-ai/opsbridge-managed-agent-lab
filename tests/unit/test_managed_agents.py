@@ -21,6 +21,8 @@ from src.opsbridge.managed_agents import (
 )
 from src.opsbridge.managed_agents import provision as provision_module
 from src.opsbridge.managed_agents.client import ManagedAgentClient, ManagedAgentClientError
+from src.opsbridge.managed_agents.orchestrator import IncidentSessionOrchestrator
+from src.opsbridge.managed_agents.stream import EventStreamConsumer
 from src.opsbridge.managed_agents.permissions import PolicyDecision
 
 
@@ -77,6 +79,7 @@ class FakeResource:
                 "vault_ids": [],
                 "memory_store_ids": [],
                 "metadata": {},
+                "status": "running",
             }
         if self.name == "memory_stores":
             return {"id": identifier, "name": "store", "memory_type": "read_write"}
@@ -275,6 +278,17 @@ def test_session_helpers() -> None:
     assert len(listed) == 1
 
 
+class FakeProvisioner:
+    def create_session(
+        self,
+        agent_id: str,
+        environment_id: str,
+        vault_ids: list[str],
+        memory_store_ids: list[str],
+    ) -> str:
+        return "session-created"
+
+
 @pytest.mark.asyncio
 async def test_event_helpers() -> None:
     client = make_client()
@@ -284,6 +298,16 @@ async def test_event_helpers() -> None:
     events.send_interrupt(client, "session-1")
     assert streamed == [{"type": "message", "text": "hello"}]
     assert cached == [{"id": "evt-1", "type": "message"}]
+
+
+@pytest.mark.asyncio
+async def test_event_stream_consumer_caches_events() -> None:
+    consumer = EventStreamConsumer(make_client(), "session-1")
+    streamed = [event async for event in consumer.consume()]
+    assert streamed == [{"type": "message", "text": "hello"}]
+    assert consumer.get_cached_events() == streamed
+    consumer.clear_cache()
+    assert consumer.get_cached_events() == []
 
 
 def test_outcome_helpers(tmp_path: Path) -> None:
@@ -320,6 +344,30 @@ def test_dream_helpers() -> None:
     assert created.id == "dreams-created"
     assert status.status == "running"
     assert result.consolidated_store_id == "store-merged"
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_lifecycle_methods() -> None:
+    client = make_client()
+    orchestrator = IncidentSessionOrchestrator(client, FakeProvisioner())
+
+    orchestrator.start_outcome("session-1", "inc_042")
+    streamed = [event async for event in orchestrator.stream_events("session-1")]
+    orchestrator.confirm_tool("session-1", "evt-1", allow=True)
+    orchestrator.interrupt("session-1", "Need operator confirmation")
+    orchestrator.resume_with_instruction("session-1", "Proceed with validated rollback only.")
+    status = orchestrator.get_session_status("session-1")
+
+    outcome_calls = client.beta.outcomes.calls if hasattr(client.beta, "outcomes") else []
+    session_calls = client.beta.sessions.calls if hasattr(client.beta, "sessions") else []
+
+    assert streamed == [{"type": "message", "text": "hello"}]
+    assert status == "running"
+    assert outcome_calls[0][0] == "create"
+    assert "inc_042" in outcome_calls[0][1]["instruction"]
+    assert session_calls[-4][1]["input"]["tool_event_id"] == "evt-1"
+    assert session_calls[-3][1]["input"]["reason"] == "Need operator confirmation"
+    assert session_calls[-2][1]["input"]["text"] == "Proceed with validated rollback only."
 
 
 def test_vault_helpers() -> None:
